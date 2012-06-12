@@ -20,7 +20,7 @@ class ListHosts(tornado.web.RequestHandler):
             data_dir = self.application.settings["collectd_directory"]
             data_dir = os.path.join(data_dir, "rrd")
             self.write(json.dumps(
-                [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))] + ["dupa"]
+                [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
             ))
         except OSError:
             raise tornado.web.HTTPError(404, "Collectd directory `%s` was not found" % data_dir)
@@ -68,17 +68,26 @@ class GetData(tornado.web.RequestHandler):
             rrd_file = os.path.join(metrics_dir, rrd)
 
             # TODO: improve reading
-            data = rrdtool.fetch(rrd_file)
-            self.write(json.dumps(data))
+            if not start:
+                start = rrdtool.first(str(rrd_file))
+            if not end:
+                end = rrdtool.last(str(rrd_file))
+
+            data = rrdtool.fetch(str(rrd_file), "AVERAGE", "-s", str(start), "-e", str(end))
+            D = []
+            for k, v in enumerate(data[2]):
+                D.append([(data[0][0] + data[0][2] * k) * 1000, v[0]])
+            #print(json.dumps(D))
+            self.write(json.dumps({"data": D}))
 
         except OSError:
-            raise tornado.web.HTTPError(404, "Collectd metrics `%s` were not found" % (rrd_file, ))
+            raise tornado.web.HTTPError(404, "Collectd metrics `%s` not found" % (rrd_file, ))
 
         except rrdtool.error, e:
             raise tornado.web.HTTPError(500, "RRDTool is borked: `%s`" % str(e))
 
 
-class Threshold(tornado.web.ReqeustHandler):
+class Threshold(tornado.web.RequestHandler):
     """
     Set and get current thresholds for given RRD
     """
@@ -91,8 +100,8 @@ application = tornado.web.Application([
     (r"/list_hosts", ListHosts),
     (r"/host/(.*)/list_metrics", ListMetrics),
     (r"/host/(.*)/list_rrds/(.*)", ListRRDs),
-    (r"/get/(.*)/(.*)/(.*)/(\d*)/?(\d*)/?", GetData),
-    (r"/threshold/(.*)/(.*)/(.*)", Threshold),
+    (r"/get/(.*)/(.*)/(.*)/?(\d*)/?(\d*)/?", GetData),
+    (r"/threshold/(.*)/(.*)/(.*)", Threshold),  # should support GET & POST
     # it's likely that any other URL will be used for configuration protocol
 ],
 collectd_directory="/var/lib/collectd/",

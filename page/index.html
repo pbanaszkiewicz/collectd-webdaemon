@@ -99,11 +99,17 @@
                     </select><br>
                     <button type="button" class="btn" id="btn_host">Show metrics</button>
                 </div>
-                <div id="menu_rrds" class="span9 hidden">
-                    <label for="select_rrd">Select RRD file:</label>
-                    <select id="select_rrd" name="select_rrd">
+                <div id="menu_metrics" class="span9 hidden">
+                    <label for="select_metrics">Select metrics:</label>
+                    <select id="select_metrics" name="select_metrics">
                     </select>
                 </div>
+                <div id="menu_rrds" class="span9 hidden">
+                    <label for="select_rrds">Select rrds:</label>
+                    <select id="select_rrds" name="select_rrds">
+                    </select>
+                </div>
+                <div id="chart" class="span7" style="height: 400px"></div>
                 <!--<div class="span9">-->
                 <!--    <p>Tabs with various metrics</p>-->
                 <!--</div>-->
@@ -122,6 +128,7 @@
         <!-- Placed at the end of the document so the pages load faster -->
         <script src="js/jquery-1.7.2.min.js"></script>
         <script src="js/bootstrap.js"></script>
+        <script src="js/flot/jquery.flot.js"></script>
         <script src="js/metrics.js"></script>
 
     </body>

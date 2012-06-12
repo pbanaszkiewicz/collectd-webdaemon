@@ -30,12 +30,36 @@ $("#btn_host").click(function() {
     // show list of statistics
     $.getJSON(address + "/host/" + $("#select_host").val() + "/list_metrics", function(data) {
         console.log("got some data: " + data);
-        $("#menu_rrds").removeClass("hidden");
+        $("#menu_metrics").removeClass("hidden");
 
-        $("#select_rrd").empty();
+        $("#select_metrics").empty();
         $.each(data, function(k, v) {
             console.log("dir: " + v);
-            $("<option/>", {html: v}).appendTo("#select_rrd");
+            $("<option/>", {html: v}).appendTo("#select_metrics");
         });
+    });
+});
+
+$("#select_metrics").change(function(){
+    $.getJSON(address + "/host/" + $("#select_host").val() + "/list_rrds/" + $("#select_metrics").val(), function(data) {
+        console.log("got some data: " + data);
+        $("#menu_rrds").removeClass("hidden");
+
+        $("#select_rrds").empty();
+        $.each(data, function(k, v) {
+            console.log("rrd: " + v);
+            $("<option/>", {html: v}).appendTo("#select_rrds");
+        });
+    });
+});
+
+$("#select_rrds").change(function(){
+    $.getJSON(address + "/get/" + $("#select_host").val() + "/" + $("#select_metrics").val() + "/" + $("#select_rrds").val(), function(data) {
+        console.log("got some data: " + data);
+        options = {
+            lines: { show: true },
+            xaxis: { mode: "time" }
+        };
+        $.plot($("#chart"), [data.data], options);
     });
 });

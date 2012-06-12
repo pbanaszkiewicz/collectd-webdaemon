@@ -57,8 +57,23 @@ $("#select_rrds").change(function(){
     $.getJSON(address + "/get/" + $("#select_host").val() + "/" + $("#select_metrics").val() + "/" + $("#select_rrds").val(), function(data) {
         console.log("got some data: " + data);
         options = {
-            lines: { show: true },
-            xaxis: { mode: "time" }
+            series: {
+                lines: { show: true },
+                points: { show: false },
+            },
+            xaxis: { mode: "time" },
+            yaxis: {
+                tickDecimals: 2,
+                tickFormatter: function(val, axis) {
+                    if (val > 1000000000)
+                        return (val / 1000000000).toFixed(axis.tickDecimals) + " G";
+                    if (val > 1000000)
+                        return (val / 1000000).toFixed(axis.tickDecimals) + " M";
+                    if (val > 1000)
+                        return (val / 1000).toFixed(axis.tickDecimals) + " k";
+                    return val.toFixed(axis.tickDecimals)
+                },
+            },
         };
         $.plot($("#chart"), [data.data], options);
     });

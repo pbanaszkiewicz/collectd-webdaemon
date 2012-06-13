@@ -43,38 +43,53 @@ $("#btn_host").click(function() {
 $("#select_metrics").change(function(){
     $.getJSON(address + "/host/" + $("#select_host").val() + "/list_rrds/" + $("#select_metrics").val(), function(data) {
         console.log("got some data: " + data);
-        $("#menu_rrds").removeClass("hidden");
+        $("#rrds").removeClass("hidden");
+        $("#get_metrics").removeClass("hidden");
 
-        $("#select_rrds").empty();
+        $("#rrds").empty();
         $.each(data, function(k, v) {
             console.log("rrd: " + v);
-            $("<option/>", {html: v}).appendTo("#select_rrds");
+            $("<input/>", {type: "checkbox", value: v, id: "id_" + v, checked: "checked"}).appendTo("#rrds");
+            $("<label/>", {html: v, for: "id_" + v, style: "display: inline"}).appendTo("#rrds");
+            $("<br/>").appendTo("#rrds");
         });
     });
 });
 
-$("#select_rrds").change(function(){
-    $.getJSON(address + "/get/" + $("#select_host").val() + "/" + $("#select_metrics").val() + "/" + $("#select_rrds").val(), function(data) {
-        console.log("got some data: " + data);
-        options = {
-            series: {
-                lines: { show: true },
-                points: { show: false },
+$("#get_metrics").click(function(){
+    options = {
+        //series: {
+        //    lines: { show: true },
+        //    points: { show: false },
+        //},
+        xaxis: { mode: "time" },
+        yaxis: {
+            tickDecimals: 2,
+            tickFormatter: function(val, axis) {
+                if (val > 1000000000)
+                    return (val / 1000000000).toFixed(axis.tickDecimals) + " G";
+                if (val > 1000000)
+                    return (val / 1000000).toFixed(axis.tickDecimals) + " M";
+                if (val > 1000)
+                    return (val / 1000).toFixed(axis.tickDecimals) + " k";
+                return val.toFixed(axis.tickDecimals)
             },
-            xaxis: { mode: "time" },
-            yaxis: {
-                tickDecimals: 2,
-                tickFormatter: function(val, axis) {
-                    if (val > 1000000000)
-                        return (val / 1000000000).toFixed(axis.tickDecimals) + " G";
-                    if (val > 1000000)
-                        return (val / 1000000).toFixed(axis.tickDecimals) + " M";
-                    if (val > 1000)
-                        return (val / 1000).toFixed(axis.tickDecimals) + " k";
-                    return val.toFixed(axis.tickDecimals)
-                },
-            },
-        };
-        $.plot($("#chart"), [data.data], options);
+        },
+    };
+    var data = [];
+    $.plot($("#chart"), data, options)
+    var rrds = [];
+
+    $("#rrds input:checked").each(function() {
+        rrds.push($(this).val());
     });
+
+    $.getJSON(address + "/get/" + $("#select_host").val() + "/" + $("#select_metrics").val() + "/" + rrds.join("|"), function(D) {
+        console.log("got some data: " + D);
+        $.each(D, function(i, e) {
+            data.push(e);
+        });
+        $.plot($("#chart"), data, options);
+    });
+
 });

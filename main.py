@@ -58,27 +58,39 @@ class ListRRDs(tornado.web.RequestHandler):
 class GetData(tornado.web.RequestHandler):
     def get(self, host, metrics, rrd, start=None, end=None):
         if not filter_dirs(metrics):
+            # TODO: we probably don't want to have this
             raise tornado.web.HTTPError(404, "Illegal collectd metrics directory `%s`" % metrics)
+
+        rrd = rrd.split("|")
+
+        return_data = dict()
 
         try:
             data_dir = self.application.settings["collectd_directory"]
             data_dir = os.path.join(data_dir, "rrd")
             host_dir = os.path.join(data_dir, host)
             metrics_dir = os.path.join(host_dir, metrics)
-            rrd_file = os.path.join(metrics_dir, rrd)
 
-            # TODO: improve reading
-            if not start:
-                start = rrdtool.first(str(rrd_file))
-            if not end:
-                end = rrdtool.last(str(rrd_file))
+            for i in rrd:
+                rrd_file = os.path.join(metrics_dir, i)
 
-            data = rrdtool.fetch(str(rrd_file), "AVERAGE", "-s", str(start), "-e", str(end))
-            D = []
-            for k, v in enumerate(data[2]):
-                D.append([(data[0][0] + data[0][2] * k) * 1000, v[0]])
-            #print(json.dumps(D))
-            self.write(json.dumps({"data": D}))
+                # TODO: handle rrd errors better?
+                if not start:
+                    #start = str(rrdtool.first(str(rrd_file)))
+                    start = "-1d"
+                if not end:
+                    #end = str(rrdtool.last(str(rrd_file)))
+                    end = "now"
+
+                data = rrdtool.fetch(str(rrd_file), "AVERAGE", "-s", start, "-e", end)
+                D = []
+                for k, v in enumerate(data[2]):
+                    # time is being multiplied by 1000, because JS handles EPOCH
+                    # as miliseconds, not seconds since 1/1/1970 00:00:00
+                    D.append([(data[0][0] + data[0][2] * k) * 1000, v[0]])
+
+                return_data[i] = {"label": i, "data": D}
+            self.write(json.dumps(return_data))
 
         except OSError:
             raise tornado.web.HTTPError(404, "Collectd metrics `%s` not found" % (rrd_file, ))

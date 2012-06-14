@@ -8,7 +8,7 @@ import rrdtool
 
 
 def filter_dirs(name):
-    for i in ["memory", "cpu", "interface", "disk"]:
+    for i in ["memory", "cpu", "interface", "disk", "net"]:
         if name.startswith(i):
             return True
     return False

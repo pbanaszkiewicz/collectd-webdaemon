@@ -77,7 +77,7 @@ class GetData(tornado.web.RequestHandler):
                 # TODO: handle rrd errors better?
                 if not start:
                     #start = str(rrdtool.first(str(rrd_file)))
-                    start = "-1d"
+                    start = "-1h"
                 if not end:
                     #end = str(rrdtool.last(str(rrd_file)))
                     end = "now"

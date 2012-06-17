@@ -17,6 +17,7 @@ app = Flask(__name__)
 app.config.update(
     collectd_directory="/var/lib/collectd/",
     DEBUG=True,
+    # TODO: accepted IP addresses
 )
 
 
@@ -64,6 +65,8 @@ def list_rrds(host, metrics):
         return ("Collectd metrics `%s@%s` were not found" % (metrics, host), 404)
 
 
+@app.route("/get/<host>/<metrics>/<rrd>/", defaults={"start": None, "end": None})
+@app.route("/get/<host>/<metrics>/<rrd>/<start>/", defaults={"end": None})
 @app.route("/get/<host>/<metrics>/<rrd>/<start>/<end>")
 def get_data(host, metrics, rrd, start=None, end=None):
     if not filter_dirs(metrics):
@@ -83,7 +86,6 @@ def get_data(host, metrics, rrd, start=None, end=None):
         for i in rrd:
             rrd_file = os.path.join(metrics_dir, i)
 
-            # TODO: handle rrd errors better?
             if not start:
                 #start = str(rrdtool.first(str(rrd_file)))
                 start = "-1h"
@@ -108,20 +110,12 @@ def get_data(host, metrics, rrd, start=None, end=None):
         return ("RRDTool is borked: `%s`" % str(e), 500)
 
 
-@app.route("/threshold/")
+@app.route("/threshold/", methods=["GET", "POST"])
 def threshold():
     """
     Set and get current thresholds for given RRD
     """
     return ""
-
-
-#application = tornado.web.Application([
-#    (r"/page/(.*)", tornado.web.StaticFileHandler, {"path": "./page"}),
-#    # it's likely that any other URL will be used for configuration protocol
-#],
-#collectd_directory="/var/lib/collectd/",
-#debug=True)
 
 
 if __name__ == "__main__":

@@ -1,20 +1,19 @@
 # coding: utf-8
 
 import os
+from xml.dom.minidom import parseString as parse_XML
+
 import simplejson as json
 import rrdtool
-from xml.dom.minidom import parseString as parse_XML
+
 from flask import Flask, request, redirect
+
+from settings import settings
 from utils import filter_dirs, collectd_to_XML, XML_to_collectd
 
 
 app = Flask(__name__)
-app.config.update(
-    collectd_directory="/var/lib/collectd/",
-    collectd_threshold_file="/etc/collectd/threshold.conf",
-    DEBUG=True,
-    # TODO: accepted IP addresses
-)
+app.config.update(settings)
 
 
 @app.route("/")
@@ -129,8 +128,8 @@ def threshold():
     """
     Set and get current thresholds for collectd daemon.
 
-    Method GET: obtain configuration
-    Method POST: set configuration
+    GET method:  obtain configuration
+    POST method: set configuration
     """
     path = app.config["collectd_threshold_file"]
 
@@ -138,7 +137,7 @@ def threshold():
         try:
             return collectd_to_XML(open(path, "r").read())
         except IOError:
-            # not found / no permission
+            # not found OR no permission
             return ("File not found", 404)
 
     elif request.method == "POST":
@@ -152,13 +151,19 @@ def threshold():
         F.write(XML_to_collectd(XML))
         F.close()
 
+        # TODO: run collectd to test if the configuration is fine
+        #       copy of previous configuration will be needed in case of failure
+
         return ("File saved.", 200)
 
 
 if __name__ == "__main__":
     if app.debug:
-        app.run(port=8888)
+        # for debugging purposes, we run Flask own server, and also it's
+        # wonderful debugger. BTW: it automatically reloads
+        app.run(port=app.config["debug_port"])
     else:
+        # for production, we use Tornado super-duper fast HTTP server
         from tornado.httpserver import HTTPServer
         from tornado.wsgi import WSGIContainer
         from tornado.ioloop import IOLoop

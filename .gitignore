@@ -32,10 +32,11 @@ lib
 include
 
 #tornado
-json
-os
 tornado.ioloop
 tornado.web
 
 #vim files
 *.swp
+
+#rope files
+.ropeproject

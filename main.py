@@ -85,8 +85,8 @@ def get_data(host, metrics, rrd, start=None, end=None):
     by "|" [pipe] sign.)
     """
     # TODO: we probably don't want to have this
-    if not filter_dirs(metrics):
-        return ("Illegal collectd metrics directory `%s`" % metrics, 404)
+    #if not filter_dirs(metrics):
+    #    return ("Illegal collectd metrics directory `%s`" % metrics, 404)
 
     rrd = rrd.split("|")
 
@@ -161,7 +161,8 @@ if __name__ == "__main__":
     if app.debug:
         # for debugging purposes, we run Flask own server, and also it's
         # wonderful debugger. BTW: it automatically reloads
-        app.run(port=app.config["debug_port"])
+        app.run(host=app.config["debug_address"][0],
+                port=app.config["debug_address"][1])
     else:
         # for production, we use Tornado super-duper fast HTTP server
         from tornado.httpserver import HTTPServer

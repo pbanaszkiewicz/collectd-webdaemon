@@ -13,7 +13,10 @@ def collectd_to_XML(string):
     """
     Change collectd's configuration format to XML (because they're very similar).
     """
-    S = re.sub(r'<(\w+) "([^"]+)">', r'<\1 name="\2">', string, flags=re.U | re.I)
+    S = string
+    S = re.sub(r'#.*$', r'', S, flags=re.U | re.I | re.M)  # drop comments
+    S = re.sub(r'^\s*$', r'', S, flags=re.U | re.I | re.M)  # drop empty lines
+    S = re.sub(r'<(\w+) "([^"]+)">', r'<\1 name="\2">', S, flags=re.U | re.I)
     S = re.sub(r"^(\s+)(\w+)\s+(.+)$", r"\1<\2>\3</\2>", S, flags=re.M | re.U | re.I)
     S = re.sub(r'>"([^"]+)"<', r'>\1<', S)
     return S

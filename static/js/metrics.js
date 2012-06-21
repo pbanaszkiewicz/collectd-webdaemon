@@ -75,6 +75,9 @@ $("#get_metrics").click(function(){
                 return val.toFixed(axis.tickDecimals)
             },
         },
+        legend: {
+            container: "#chart_legend",
+        },
     };
     var data = [];
     $.plot($("#chart"), data, options)

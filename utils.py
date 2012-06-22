@@ -19,7 +19,7 @@ def collectd_to_XML(config):
 
     replaces = [
         [r'#.*$', r'', re.M],  # drop comments
-        [r'^\s*$', r'', re.M],  # drop empty lines
+        [r"\n\n", r"\n", None],  # drop empty lines
         [r'<(\w+) "([^"]+)">', r'<\1 name="\2">', None],  # add attribute `name`
         [r"^(\s+)(\w+)\s+(.+)$", r"\1<\2>\3</\2>", re.M],  # change Value XYZ -> <Value>XYZ</Value>
         [r'>"([^"]+)"<', r'>\1<', None],  # "asd" -> asd
@@ -27,7 +27,7 @@ def collectd_to_XML(config):
     ]
 
     for r1, r2, flags in replaces:
-        S = re.sub(r1, r2, re.U | re.I | (flags if flags else 0))
+        S = re.sub(r1, r2, S, flags=re.U | re.I | (flags if flags else 0))
 
     return S
 

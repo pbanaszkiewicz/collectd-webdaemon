@@ -14,6 +14,11 @@ $("#btn_connect").click(function() {
     // get thresholds configuration
     $.get(address + "/threshold/", function(data) {
         console.log("got some data: " + data);
+        root = data.documentElement;
+        console.log("root: " + root.nodeName);
+        for (i=0; i < root.childNodes.length; i++) {
+            console.log("  child: " + root.childNodes[i].nodeType + " " + root.childNodes[i].nodeName);
+        }
     }, "xml");
     //$.getJSON(address + "/thresholds/", function(data) {
     //    console.log("got some data: " + data);

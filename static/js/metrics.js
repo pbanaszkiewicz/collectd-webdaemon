@@ -51,15 +51,41 @@ $("#select_metrics").change(function(){
             console.log("rrd: " + v);
             $("<input/>", {type: "checkbox", value: v, id: "id_" + v, checked: "checked"}).appendTo("#rrds");
             $("<label/>", {html: v, for: "id_" + v, style: "display: inline"}).appendTo("#rrds");
-            $("<a/>", {html: "+ Threshold", id: "btn_" + v, dataname: v, href: "#"}).appendTo("#rrds");
+            $("<a/>", {html: "+ Threshold", href: "#", dataname: v, class: "btn_threshold"}).appendTo("#rrds");
             $("<br/>").appendTo("#rrds");
-            $("a#btn_" + v).bind("click", get_thresholds);
         });
+        $(".btn_threshold").bind("click", get_thresholds);
     });
 });
 
 function get_thresholds(e) {
     console.log("Event triggered! " + e);
+    var host = $("#select_host").val();
+    var plugin_path = $("#select_metrics").val().split("-");
+    var type_path = $(e.target).attr("dataname").split("-");
+    var plugin = plugin_path[0];
+    var plugin_instance = plugin_path[1];
+    var type = type_path[0];
+    var type_instance = type_path[1];
+
+    if (!plugin_instance) plugin_instance = "-";
+    if (!type_instance) plugin_instance = "-";
+    var data = new Array(); data.push(host); data.push(plugin); data.push(plugin_instance); data.push(type);
+    data.push(type_instance);
+    console.log("data: " + data.join("/"));
+
+    $.getJSON(address + "/lookup_threshold/" + data.join("/"), function(json) {
+        // work on the results
+        if (!json) {
+            console.log("empty list of thresholds");
+            // show menu for adding threshold
+        } else {
+            console.log("some thresholds");
+            // show list of similar thresholds
+            // enable editing them
+            // enable adding new threshold
+        }
+    });
 }
 
 $("#get_metrics").click(function(){

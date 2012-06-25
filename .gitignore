@@ -43,3 +43,4 @@ tornado.web
 
 #sqlite databases
 *.db
+*.db-journal

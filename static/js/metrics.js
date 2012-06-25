@@ -51,10 +51,16 @@ $("#select_metrics").change(function(){
             console.log("rrd: " + v);
             $("<input/>", {type: "checkbox", value: v, id: "id_" + v, checked: "checked"}).appendTo("#rrds");
             $("<label/>", {html: v, for: "id_" + v, style: "display: inline"}).appendTo("#rrds");
+            $("<a/>", {html: "+ Threshold", id: "btn_" + v, data-name: v}).appendTo("#rrds");
             $("<br/>").appendTo("#rrds");
+            $("a#btn_" + v).bind("click", get_thresholds);
         });
     });
 });
+
+function get_thresholds(e) {
+    console.log("Event triggered! " + e);
+}
 
 $("#get_metrics").click(function(){
     options = {

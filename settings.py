@@ -5,4 +5,5 @@ settings = {
     "collectd_directory": "/var/lib/collectd/",
     "collectd_threshold_file": "thresholds.conf",
     "GWM_host": ["127.0.0.1", ],
+    "database_name": "thresholds.db",
 }

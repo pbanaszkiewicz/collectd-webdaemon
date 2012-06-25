@@ -15,6 +15,8 @@ def collectd_to_XML(config):
 
     :param config:  Collectd's configuration
     """
+    # TODO: possibly deprecate this, as I can generate JSON from database and
+    #       send it to the browser
     S = config
 
     replaces = [
@@ -39,6 +41,8 @@ def XML_to_collectd(config, spacing="  "):
     :param config:   XML-ified collectd's configuration
     :param spacing:  default gap between argument name and its value
     """
+    # XXX: DEPRECATED since I'll be using sqlite to store all the information
+    #      convert them to collectd's configuration file
     S = config
 
     # remove attribute `name`

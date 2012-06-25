@@ -2,19 +2,50 @@
 # coding: utf-8
 
 import os
-from xml.dom.minidom import parseString as parse_XML
+#from xml.dom.minidom import parseString as parse_XML
+import re
+from collections import OrderedDict
 
+import sqlite3
 import simplejson as json
 import rrdtool
 
-from flask import Flask, request, redirect
+from flask import Flask, g, request, redirect, make_response, url_for
+from flask.views import MethodView
 
 from settings import settings
-from utils import filter_dirs, collectd_to_XML, XML_to_collectd
+from utils import filter_dirs
 
 
 app = Flask(__name__)
 app.config.update(settings)
+
+
+def connect_db():
+    """
+    Connects to the sqlite3 database. Database name is specified within settings
+    dictionary (settings.settings["database_name"]).
+    """
+    return sqlite3.connect(app.config["database_name"])
+
+
+@app.before_request
+def before_request():
+    """
+    Connects to the database just before any request is started.
+    """
+    g.db = connect_db()
+    g.db.row_factory = sqlite3.Row
+
+
+@app.teardown_request
+def teardown_request(exception):
+    """
+    As soon as request is finished, it closes the connection with database.
+    WARNING: this function DOES NOT commit any changes! You should commit them
+    in your views.
+    """
+    g.db.close()
 
 
 @app.route("/")
@@ -30,11 +61,43 @@ def list_hosts():
     try:
         data_dir = app.config["collectd_directory"]
         data_dir = os.path.join(data_dir, "rrd")
+
         return json.dumps(
             [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
         )
     except OSError:
         return ("Collectd directory `%s` was not found" % data_dir, 404)
+
+
+@app.route("/list_plugins")
+def list_plugins():
+    """
+    Return JSONified list of plugins enabled in the collectd's configuration file.
+    """
+    try:
+        config_file = app.config["collectd_config"]
+        lines = [line[11:] for line in open(config_file, "r").readlines()
+                if line.startswith("LoadPlugin ")]
+        return json.dumps(lines)
+    except OSError:
+        return ("Collectd's configuration file `%s` was not found" % config_file, 404)
+
+
+@app.route("/list_types")
+def list_types():
+    """
+    Return JSONified list of collectd's types (ie. ways the measured metrics are
+    stored in RRDfiles, basic ones are: gauge, derive, counter, absolute.)
+    The list is from collectd's main `types.db` file (usually from
+    /usr/share/collectd/)
+    """
+    try:
+        types_file = app.config["collectd_types_db"]
+        lines = re.findall(r'^(\w+).+$', open(types_file, "r").read(),
+                flags=re.U | re.M | re.I)
+        return json.dumps(lines)
+    except OSError:
+        return ("Collectd's file containing types `%s` was not found" % types_file, 404)
 
 
 @app.route("/host/<host>/list_metrics")
@@ -47,6 +110,7 @@ def list_metrics(host):
         data_dir = app.config["collectd_directory"]
         data_dir = os.path.join(data_dir, "rrd")
         host_dir = os.path.join(data_dir, host)
+
         return json.dumps(
             # TODO: filter_dirs probably should be cut off
             sorted([d for d in os.listdir(host_dir) if filter_dirs(d) and os.path.isdir(os.path.join(host_dir, d))])
@@ -115,6 +179,7 @@ def get_data(host, metrics, rrd, start=None, end=None):
                 D.append([(data[0][0] + data[0][2] * k) * 1000, v[0]])
 
             return_data[i] = {"label": i, "data": D}
+
         return json.dumps(return_data)
 
     except OSError:
@@ -124,38 +189,126 @@ def get_data(host, metrics, rrd, start=None, end=None):
         return ("RRDTool is borked: `%s`" % str(e), 500)
 
 
-@app.route("/threshold/", methods=["GET", "POST"])
-def threshold():
-    """
-    Set and get current thresholds for collectd daemon.
+class ThresholdAPI(MethodView):
+    def post(self):
+        """
+        Adds a threshold to the database. Supports only POST method.
+        Request body should be a JSON dictionary {"threshold": data}
+        `data` should be a dictionary with these keys: `host`, `plugin`,
+            `plugin_instance`, `type`, `type_instance`, `warning_min`,
+            `warning_max`, `failure_min`, `failure_max`, `percentage`,
+            `inverted`, `hits`, `hysteresis`
+        """
+        data = request.form["threshold"]
 
-    GET method:  obtain configuration
-    POST method: set configuration
-    """
-    path = app.config["collectd_threshold_file"]
+        fields = ["host", "plugin", "plugin_instance", "type", "type_instance",
+                "warning_min", "warning_max", "failure_min", "failure_max",
+                "percentage", "inverted", "hits", "hysteresis", ]
 
-    if request.method == "GET":
+        query = "INSERT INTO thresholds ("
+        query += ", ".join(fields)
+        query += ") VALUES ("
+        query += ", ".join(["?"] * len(fields))
+        query += ")"
+
+        cursor = g.db.execute(query, [data.get(key, None) for key in fields])
+        g.db.commit()
+
+        response = make_response("Threshold added.", 201)
+        response.headers["Location"] = url_for("threshold", id=cursor.lastrowid)
+        return response
+
+    def get(self, id):
+        """
+        Obtain threshold selected by `id`.
+        """
+        query = "SELECT * FROM thresholds WHERE id=?"
+        result = g.db.execute(query, [id]).fetchall()
+
+        return json.dumps([OrderedDict(row) for row in result])
+
+    def put(self, id):
+        """
+        Updates the threshold's record in the database. `id` specifies record.
+        Request body should be a JSON dictionary {"threshold": data}
+        `data` should be a dictionary with these keys: `host`, `plugin`,
+            `plugin_instance`, `type`, `type_instance`, `warning_min`,
+            `warning_max`, `failure_min`, `failure_max`, `percentage`,
+            `inverted`, `hits`, `hysteresis`
+        """
+        data = request.form["threshold"]
+
+        fields = ["host", "plugin", "plugin_instance", "type", "type_instance",
+                "warning_min", "warning_max", "failure_min", "failure_max",
+                "percentage", "inverted", "hits", "hysteresis", ]
+
+        query = "UPDATE thresholds SET "
+        query += ", ".join(key + "=:" + key for key in fields)
+        query += "WHERE id=:id"
+        data["id"] = id
+
         try:
-            return collectd_to_XML(open(path, "r").read())
-        except IOError:
-            # not found OR no permission
-            return ("File not found", 404)
+            g.db.execute(query, data)
 
-    elif request.method == "POST":
-        XML = request.form['configuration']
+        except sqlite3.Error, e:
+            g.db.rollback()
+            return ("Error occured: %s" % e, 500)
 
-        # checking XML for good structure
-        # an exception will result in HTTP 500
-        parse_XML(XML)
+        else:
+            g.db.commit()
+            return ("Threshold updated.", 200)
 
-        F = open(path, "w")
-        F.write(XML_to_collectd(XML))
-        F.close()
+    def delete(self, id):
+        """
+        Removes the threshold specified by `id`.
+        """
+        query = "DELETE FROM thresholds WHERE id=?"
+        try:
+            g.db.execute(query, [id])
+        except sqlite3.Error, e:
+            g.db.rollback()
+            return ("Error occured: %s" % e, 500)
+        else:
+            g.db.commit()
+            return ("Threshold removed.", 200)
 
-        # TODO: run collectd to test if the configuration is fine
-        #       copy of previous configuration will be needed in case of failure
+thresholds_view = ThresholdAPI.as_view("threshold")
+app.add_url_rule("/threshold/", methods=["POST"], defaults={"id": None}, view_func=thresholds_view)
+app.add_url_rule("/threshold/<int:id>", methods=["GET", "PUT", "DELETE"], view_func=thresholds_view)
 
-        return ("File saved.", 200)
+
+@app.route("/lookup_threshold/<host>/<plugin>/<plugin_instance>/<type>/<type_instance>/")
+def lookup_threshold(host, plugin, plugin_instance, type, type_instance):
+    """
+    Looks up a threshold in the database with similar parameters to the given
+    one.
+    Only thresholds with the same `type` will be looked up!
+    Sorting is based on the number of fields matching given parameters.
+    """
+    # TODO: test accuracy of this sorting
+    def match(row):
+        r = 0
+        if row["host"] == host:
+            r += 4
+        if row["plugin"] == plugin:
+            r += 2
+        if row["plugin_instance"] == plugin_instance:
+            r += 1
+        if row["type_instance"] == type_instance:
+            r += 8
+        return r
+
+    host = None if host == "-" else host
+    plugin = None if plugin == "-" else plugin
+    plugin_instance = None if plugin_instance == "-" else plugin_instance
+    type_instance = None if type_instance == "-" else type_instance
+
+    query = "SELECT * FROM thresholds WHERE type=?"
+    result = g.db.execute(query, [type, ]).fetchall()
+
+    result.sort(key=match)
+
+    return json.dumps([OrderedDict(row) for row in result])
 
 
 if __name__ == "__main__":

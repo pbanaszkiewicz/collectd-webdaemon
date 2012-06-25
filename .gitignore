@@ -40,3 +40,6 @@ tornado.web
 
 #rope files
 .ropeproject
+
+#sqlite databases
+*.db

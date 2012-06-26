@@ -8,13 +8,13 @@ from collections import OrderedDict
 
 import sqlite3
 import simplejson as json
-import rrdtool
 
+# TODO: switch to flask.jsonify to make good JSON responses
 from flask import Flask, g, request, redirect, make_response, url_for
 from flask.views import MethodView
 
 from settings import settings
-from utils import filter_dirs
+from utils import read_rrd
 
 
 app = Flask(__name__)
@@ -112,8 +112,7 @@ def list_metrics(host):
         host_dir = os.path.join(data_dir, host)
 
         return json.dumps(
-            # TODO: filter_dirs probably should be cut off
-            sorted([d for d in os.listdir(host_dir) if filter_dirs(d) and os.path.isdir(os.path.join(host_dir, d))])
+            sorted([d for d in os.listdir(host_dir) if os.path.isdir(os.path.join(host_dir, d))])
         )
     except OSError:
         return ("Collectd hostname directory `%s` was not found" % host_dir, 404)
@@ -136,57 +135,59 @@ def list_rrds(host, metrics):
         return ("Collectd metrics `%s@%s` were not found" % (metrics, host), 404)
 
 
-@app.route("/get/<host>/<metrics>/<rrd>/", defaults={"start": None, "end": None})
-@app.route("/get/<host>/<metrics>/<rrd>/<start>/", defaults={"end": None})
-@app.route("/get/<host>/<metrics>/<rrd>/<start>/<end>")
-def get_data(host, metrics, rrd, start=None, end=None):
+@app.route("/get/", methods=["POST"], defaults={"start": None, "end": None})
+@app.route("/get/<start>/<end>/", methods=["POST"])
+def get_arbitrary_data(start, end):
     """
-    Return JSON dictionary of pairs RRD file name and it's parsed content.
+    Returns content of any / many RRD files.
+    Works upon POST request, when request body contains a JSONified structure:
+        1) tree
+            {
+                "host1": {"plugin1": {"rrd1", "rrd2"}, "plugin2": {"rrd3",} },
+                "host2": {"plugin2": {"rrd1", "rrd2"}, "plugin4": {"rrd3",} }
+            }
+        2) list
+            [
+                "host1/plugin1/rrd1",
+                "host1/plugin1/rrd2",
+                "host1/plugin2/rrd3",
+                "host2/plugin2/rrd1",
+                "host2/plugin2/rrd2",
+                "host2/plugin4/rrd3"
+            ]
+    This structure has to be in "rrds" POST argument.
 
-    Actually supports only first value, even though RRD file can store more at
-    one frame.
-
-    Supports many RRD files from one directory (file names must be separated
-    by "|" [pipe] sign.)
+    Returns a dictionary, where keys are paths like in above "list" example and
+    values are {"label": ..., "data": ...} dicts.
     """
-    # TODO: we probably don't want to have this
-    #if not filter_dirs(metrics):
-    #    return ("Illegal collectd metrics directory `%s`" % metrics, 404)
+    results = json.loads(request.form["rrds"])
 
-    rrd = rrd.split("|")
+    paths = []
 
-    return_data = dict()
+    if isinstance(results, dict):
+        # option 1) dict/tree
+        # I assume the tree has 3 levels
+        for host in results.values():
+            for plugin in results[host]:
+                for fn in results[host][plugin]:
+                    paths.append(os.path.join(host, plugin, fn))
+    else:
+        # option 2) list
+        # simply copy the list
+        paths = results[:]
 
-    try:
-        data_dir = app.config["collectd_directory"]
-        data_dir = os.path.join(data_dir, "rrd")
-        host_dir = os.path.join(data_dir, host)
-        metrics_dir = os.path.join(host_dir, metrics)
+    start = start or app.config["default_start_time"]
+    end = end or app.config["default_end_time"]
 
-        for i in rrd:
-            rrd_file = os.path.join(metrics_dir, i)
+    data = read_rrd(app.config["collectd_directory"], paths, start, end)
 
-            if not start:
-                start = "-1h"
-            if not end:
-                end = "now"
+    if data[0] == 404:
+        return ("Some collectd's metrics were not found: %s" % data[1], 404)
 
-            data = rrdtool.fetch(str(rrd_file), "AVERAGE", "-s", start, "-e", end)
-            D = []
-            for k, v in enumerate(data[2]):
-                # time is being multiplied by 1000, because JS handles EPOCH
-                # as miliseconds, not seconds since 1/1/1970 00:00:00
-                D.append([(data[0][0] + data[0][2] * k) * 1000, v[0]])
+    elif data[0] == 500:
+        return ("RRDTool is borked: `%s`" % data[1], 500)
 
-            return_data[i] = {"label": i, "data": D}
-
-        return json.dumps(return_data)
-
-    except OSError:
-        return ("Collectd metrics `%s` not found" % (rrd_file, ), 404)
-
-    except rrdtool.error, e:
-        return ("RRDTool is borked: `%s`" % str(e), 500)
+    return (json.dumps(data[1]), 200)
 
 
 class ThresholdAPI(MethodView):
@@ -303,7 +304,8 @@ def lookup_threshold(host, plugin, plugin_instance, type, type_instance):
     plugin_instance = None if plugin_instance == "-" else plugin_instance
     type_instance = None if type_instance == "-" else type_instance
 
-    query = "SELECT * FROM thresholds WHERE type=?"
+    query = "SELECT id, host, plugin, plugin_instance, type, type_instance "
+    query += "FROM thresholds WHERE type=?"
     result = g.db.execute(query, [type, ]).fetchall()
 
     result.sort(key=match)

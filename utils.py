@@ -1,12 +1,54 @@
 # coding: utf-8
 import re
+import rrdtool
+import os
 
 
-def filter_dirs(name):
-    for i in ["memory", "cpu", "interface", "disk", "net"]:
-        if name.startswith(i):
-            return True
-    return False
+def read_rrd(data_dir, paths, start, end):
+    """
+    Return a dictionary of pairs RRD file name and it's parsed content.
+
+    Actually supports only first value, even though RRD file can store more at
+    one frame.
+
+    Supports many RRD files (needs to have full host/plugin/rrdfile paths
+    provided.)
+    """
+    return_data = dict()
+
+    try:
+        for path in paths:
+            rrd_file = os.path.join(data_dir, path)
+
+            data = rrdtool.fetch(str(rrd_file), "AVERAGE", "-s", start, "-e",
+                    end)
+
+            return_data[path] = list()
+
+            for dataset, dataset_name in enumerate(data[1]):
+                # iterating through possible datasets
+                D = list()
+                for k, v in enumerate(data[2]):
+                    # time is being multiplied by 1000, because JS handles EPOCH
+                    # as miliseconds, not seconds since 1/1/1970 00:00:00
+
+                    #        [ time                               , value]
+                    D.append([(data[0][0] + data[0][2] * k) * 1000, v[dataset]])
+
+                return_data[path].append(
+                    {
+                    "label": os.path.basename(path) + " (%s)" % dataset_name,
+                    "data": D
+                    }
+                )
+
+        return (200, return_data)
+
+    except OSError:
+        return (404, rrd_file)
+
+    except rrdtool.error, e:
+        return (500, str(e))
 
 
 def collectd_to_XML(config):
@@ -15,8 +57,8 @@ def collectd_to_XML(config):
 
     :param config:  Collectd's configuration
     """
-    # TODO: possibly deprecate this, as I can generate JSON from database and
-    #       send it to the browser
+    # XXX: possibly deprecate this, as I can generate JSON from database and
+    #      send it to the browser
     S = config
 
     replaces = [

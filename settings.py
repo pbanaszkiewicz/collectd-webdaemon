@@ -6,4 +6,6 @@ settings = {
     "collectd_threshold_file": "thresholds.conf",
     "GWM_host": ["127.0.0.1", ],
     "database_name": "thresholds.db",
+    "default_start_time": "-1h",
+    "default_end_time": "now",
 }

@@ -76,17 +76,64 @@ function get_thresholds(e) {
 
     $.getJSON(address + "/lookup_threshold/" + data.join("/"), function(json) {
         // work on the results
-        if (!json) {
+        if (!json.length) {
             console.log("empty list of thresholds");
             // show menu for adding threshold
+            $("#threshold_setting #adding").removeClass("hidden");
+            $("#threshold_setting #editing").addClass("hidden");
+            $("#threshold_setting").removeClass("hidden");
+
+            $("#hostname").val(host);
+            $("#plugin").val(host);
+            if (plugin_instance != "-") $("#plugin_instance").val(plugin_instance);
+            $("#type").val(type);
+            if (type_instance != "-") $("#type_instance").val(type_instance);
+
         } else {
             console.log("some thresholds");
             // show list of similar thresholds
+            $("#threshold_selection").removeClass("hidden");
+            $("#threshold_selection").empty();
+            $.each(json, function(key, value) {
+                $("<a/>", {html: "Threshold #" + value["id"], href: "#", class: "edit_threshold", dataname: value["id"]}).appendTo("#thresholds_selection");
+            });
+
             // enable editing them
+            $("a.edit_threshold").click(function(e) {
+                // get data from json
+                $.getJSON(address + "/threshold/" + $(e.target).attr("dataname"),
+                    function(result) {
+                        $("#threshold_setting #adding").addClass("hidden");
+                        $("#threshold_setting #editing").removeClass("hidden");
+                        $("#threshold_setting").removeClass("hidden");
+
+                        $("#hostname").val(result["host"]);
+                        $("#plugin").val(result["plugin"]);
+                        $("#plugin_instance").val(result["plugin_instance"]);
+                        $("#type").val(result["type"]);
+                        $("#type_instance").val(result["type_instance"]);
+                        $("#failure_min").val(result["failure_min"]);
+                        $("#failure_max").val(result["failure_max"]);
+                        $("#warning_min").val(result["warning_min"]);
+                        $("#warning_max").val(result["warning_max"]);
+                        $("#percentage").attr("checked", result["percentage"]==true);
+                        $("#inverted").attr("checked", result["inverted"]==true);
+                        $("#persist").attr("checked", result["persist"]==true);
+                        $("#hits").val(result["hits"]);
+                        $("#hysteresis").val(result["hysteresis"]);
+                    });
+            });
             // enable adding new threshold
+            $("#threshold_addition").removeClass("hidden");
         }
     });
 }
+
+$("#threshold_addition").click(function() {
+    $("#threshold_setting #editing").addClass("hidden");
+    $("#threshold_setting #adding").removeClass("hidden");
+    $("#threshold_setting").removeClass("hidden");
+});
 
 $("#get_metrics").click(function(){
     options = {

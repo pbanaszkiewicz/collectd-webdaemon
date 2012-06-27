@@ -2,9 +2,14 @@
 
 from __future__ import with_statement
 from flask import Flask
+import warnings
+from sqlalchemy.exc import SAWarning
 
 
 def create_app(config):
+    # I want to handle all SQLAlchemy warnings as exceptions
+    warnings.simplefilter("error", SAWarning)
+
     app = Flask(__name__)
     app.config.update(config)
 

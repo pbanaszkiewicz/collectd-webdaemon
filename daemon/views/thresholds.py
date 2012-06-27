@@ -1,10 +1,9 @@
 # coding: utf-8
 
 import simplejson as json
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, SAWarning
 
-from flask import Blueprint, current_app, request, url_for, jsonify
-from flask import make_response
+from flask import Blueprint, request, url_for, jsonify, make_response
 from flask.views import MethodView
 thresholds = Blueprint('thresholds', __name__)
 
@@ -48,11 +47,8 @@ class ThresholdAPI(MethodView):
         """
         Obtain threshold selected by `id`.
         """
-        #from collections import OrderedDict
-        #result = Threshold.query.get_or_404(threshold_id)
-        #return jsonify(threshold=OrderedDict(result.items()))
         result = Threshold.query.get_or_404(threshold_id)
-        return jsonify(threshold=result.serialized)
+        return jsonify(threshold=result)
 
     def put(self, threshold_id):
         """
@@ -63,20 +59,17 @@ class ThresholdAPI(MethodView):
             `warning_min`, `warning_max`, `failure_min`, `failure_max`,
             `percentage`, `inverted`, `hits`, `hysteresis`
         """
-        data = json.loads(request.form["threshold"])
-
         try:
-            threshold = Threshold.query.get(threshold_id)
-            for key, value in data.items():
-                setattr(threshold, key, value)
-            current_app.db.session.add(threshold)
+            data = json.loads(request.form["threshold"])
+            threshold = Threshold.query.get_or_404(threshold_id)
+            threshold.query.update(data)
 
-        except SQLAlchemyError, e:
-            current_app.db.session.rollback()
-            return ("Error occured: %s" % e, 500)
+        except (SQLAlchemyError, SAWarning, json.JSONDecodeError):
+            db.session.rollback()
+            return ("Malformed request", 400)
 
         else:
-            current_app.db.session.commit()
+            db.session.commit()
             return ("Threshold updated.", 200)
 
     def delete(self, threshold_id):
@@ -84,24 +77,30 @@ class ThresholdAPI(MethodView):
         Removes the threshold specified by `id`.
         """
         try:
-            threshold = Threshold.query.get(threshold_id)
-            current_app.db.session.delete(threshold)
-        except SQLAlchemyError, e:
-            current_app.db.session.rollback()
-            return ("Error occured: %s" % e, 500)
+            threshold = Threshold.query.get_or_404(threshold_id)
+            db.session.delete(threshold)
+        except (SQLAlchemyError, SAWarning):
+            db.session.rollback()
+            return ("Error occured.", 500)
         else:
-            current_app.db.session.commit()
+            db.session.commit()
             return ("Threshold removed.", 200)
 
 
 thresholds_view = ThresholdAPI.as_view("threshold")
-thresholds.add_url_rule("/threshold", methods=["POST"],
-        view_func=thresholds_view)
-thresholds.add_url_rule("/threshold/<int:threshold_id>", methods=["GET", "PUT",
-        "DELETE"], view_func=thresholds_view)
+thresholds.add_url_rule(
+    "/threshold",
+    methods=["POST"],
+    view_func=thresholds_view
+)
+thresholds.add_url_rule(
+    "/threshold/<int:threshold_id>",
+    methods=["GET", "PUT", "DELETE"],
+    view_func=thresholds_view
+)
 
 
-@thresholds.route("/lookup_threshold/<host>/<plugin>/<plugin_instance>/<type>/<type_instance>/")
+@thresholds.route("/lookup_threshold/<host>/<plugin>/<plugin_instance>/<type>/<type_instance>")
 def lookup_threshold(host, plugin, plugin_instance, type, type_instance):
     """
     Looks up a threshold in the database with similar parameters to the given
@@ -109,25 +108,23 @@ def lookup_threshold(host, plugin, plugin_instance, type, type_instance):
     Only thresholds with the same `type` will be looked up!
     Sorting is based on the number of fields matching given parameters.
     """
-    # TODO: test accuracy of this sorting
     def match(row):
-        r = 0
-        if row.host == host:
-            r += 4
-        if row.plugin == plugin:
-            r += 2
-        if row.plugin_instance == plugin_instance:
-            r += 1
-        if row.type_instance == type_instance:
-            r += 8
-        return r
+        value = 0
+        value += 4 if row.host == host else 0
+        value += 2 if row.plugin == plugin else 0
+        value += 1 if row.plugin_instance == plugin_instance else 0
+        value += 8 if row.type_instance == type_instance else 0
+        return value
 
     host = None if host == "-" else host
     plugin = None if plugin == "-" else plugin
     plugin_instance = None if plugin_instance == "-" else plugin_instance
     type_instance = None if type_instance == "-" else type_instance
 
-    result = Threshold.query.order_by(Threshold.id)
-    result.sort(key=match)
+    result = Threshold.query.filter(Threshold.type == type)
+    result = list(result)
+    result.sort(key=match, reverse=True)
 
     return jsonify(thresholds=result)
+
+# TODO: generate config

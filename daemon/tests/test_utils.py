@@ -2,7 +2,7 @@
 
 import unittest
 from xml.dom.minidom import parseString as parse_XML
-from utils import filter_dirs, collectd_to_XML, XML_to_collectd
+from daemon.utils import collectd_to_XML, XML_to_collectd
 
 
 class UtilitiesTestCase(unittest.TestCase):
@@ -11,13 +11,6 @@ class UtilitiesTestCase(unittest.TestCase):
         * filtering metrics function
         * converting configuration to / from XML functions
     """
-
-    def test_filter_dirs(self):
-        for name in ["memory_test", "cpu_arg", "interface-eth0", "disk-io", "net_bubble"]:
-            self.assertTrue(filter_dirs(name))
-
-        for wrong_name in ["harakiri", "gpu", "sensor", "xkcd"]:
-            self.assertFalse(filter_dirs(wrong_name))
 
     def test_collectd_to_XML(self):
         config1 = """

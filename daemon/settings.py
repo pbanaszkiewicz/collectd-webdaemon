@@ -23,6 +23,7 @@ settings = {
     "collectd_threshold_file": "thresholds.conf",
 
     # IP addresses which are allowed to communicate with the daemon.
+    # CAUTION: use IP addresses, not host names!
     "GWM_host": ["127.0.0.1", ],
 
     # Database filename. You should not change it.

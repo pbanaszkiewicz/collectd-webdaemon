@@ -4,15 +4,10 @@ import os
 import re
 import simplejson as json
 
-from flask import current_app, Blueprint, jsonify, request, redirect
+from flask import current_app, Blueprint, jsonify, request
 metrics = Blueprint('metrics', __name__)
 
 from daemon.utils import read_rrd
-
-
-@metrics.route("/")
-def index():
-    return redirect("/static/index.html")
 
 
 @metrics.route("/list_hosts")

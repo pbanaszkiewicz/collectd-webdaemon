@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Collectd metrics daemon testing page &ndash; thresholds</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="">
+        <meta name="author" content="">
+
+        <!-- Le styles -->
+        <link href="css/bootstrap.css" rel="stylesheet">
+        <link href="css/bootstrap-responsive.css" rel="stylesheet">
+
+        <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
+        <!--[if lt IE 9]>
+        <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+        <style>
+            div.configuration {
+                padding-left: 15px;
+            }
+        </style>
+    </head>
+
+    <body>
+
+        <div class="container">
+            <div class"page-header">
+                <h1>Thresholds</h1>
+            </div>
+            <div class="row">
+                <div id="menu_connect" class="span12">
+                    <form class="well">
+                        <label for="server">Connect to:</label>
+                        <input type="text" name="server" id="server" placeholder="Server address">&nbsp;:&nbsp;<input type="text" name="port" id="port" placeholder="port"><br>
+                        <button type="button" class="btn" id="btn_connect">Connect</button>
+                    </form>
+                </div>
+                <p>Configuration:</p>
+                <div id="thresholds_read"></div>
+                <div id="threshold_setting">
+                    <form>
+                        <table>
+                            <tr>
+                                <td><label for="hostname">Host</label></td>
+                                <td>
+                                    <select id="hostname" name="hostname">
+                                        <option>Any hostname</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="plugin">Plugin</label></td>
+                                <td>
+                                    <select id="plugin" name="plugin">
+                                        <option>Any plugin</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="plugin_instance">Plugin instance</label></td>
+                                <td>
+                                    <input type="text" id="plugin_instance" name="plugin_instance">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="type">Type of data</label></td>
+                                <td>
+                                    <select id="type" name="type">
+                                        <option>memory</option>
+                                        <option>cpu</option>
+                                        <option>bytes</option>
+                                        <option>etc... :(</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="type_instance">Type instance</label></td>
+                                <td>
+                                    <input type="text" id="type_instance" name="type_instance">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="failure_min">Failure min</label></td>
+                                <td>
+                                    <input type="text" id="failure_min" name="failure_min">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="failure_max">Failure max</label></td>
+                                <td>
+                                    <input type="text" id="failure_max" name="failure_max">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="warning_min">Warning min</label></td>
+                                <td>
+                                    <input type="text" id="warning_min" name="warning_min">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="warning_max">Warning max</label></td>
+                                <td>
+                                    <input type="text" id="warning_max" name="warning_max">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="percentage">Percentage values</label></td>
+                                <td>
+                                    <input type="checkbox" id="percentage" name="percentage">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="inverted">Invert ranges</label></td>
+                                <td>
+                                    <input type="checkbox" id="inverted" name="inverted">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="persist">Persist notification</label></td>
+                                <td>
+                                    <input type="checkbox" id="persist" name="persist">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="hits">Hits</label></td>
+                                <td>
+                                    <input type="text" id="hits" name="hits">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="hysteresis">Fluctuation threshold</label></td>
+                                <td>
+                                    <input type="text" id="hysteresis" name="hysteresis">
+                                </td>
+                            </tr>
+                        </table>
+                    </form>
+                </div>
+            </div>
+
+            <hr>
+
+            <footer>
+            <p>&copy; Company 2012</p>
+            </footer>
+
+        </div><!--/.fluid-container-->
+
+        <!-- Le javascript
+        ================================================== -->
+        <!-- Placed at the end of the document so the pages load faster -->
+        <script src="js/jquery-1.7.2.min.js"></script>
+        <script src="js/bootstrap.js"></script>
+        <script src="js/flot/jquery.flot.js"></script>
+        <script src="js/thresholds.js"></script>
+
+    </body>
+</html>

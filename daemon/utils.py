@@ -1,7 +1,7 @@
 # coding: utf-8
-import re
 import rrdtool
 import os
+from daemon.models import Threshold
 
 
 def read_rrd(data_dir, paths, start, end):
@@ -51,52 +51,84 @@ def read_rrd(data_dir, paths, start, end):
         return (500, str(e))
 
 
-def collectd_to_XML(config):
+def generate_threshold_config(result_set):
     """
-    Change collectd's configuration format to XML (because they're very similar).
+    Generates well-formatted configuration file (with collectd's syntax)
+    containing threshold options (also nested ones).
+    Does not need any arguments, gathers all entries from database.
 
-    :param config:  Collectd's configuration
+    :param result_set: contains result of a SQLAlchemy query.
     """
-    # XXX: possibly deprecate this, as I can generate JSON from database and
-    #      send it to the browser
-    S = config
+    map_keys = {
+        "type_instance": "Instance",
+        #"plugin_instance": "Instance",
+        "datasource": "DataSource",
+        "warning_min": "WarningMin",
+        "warning_max": "WarningMax",
+        "failure_min": "FailureMin",
+        "failure_max": "FailureMax",
+        "percentage": "Percentage",
+        "persist": "Persist",
+        "invert": "Invert",
+        "hits": "Hits",
+        "hysteresis": "Hysteresis",
+    }
+    content = "%s\n%s"
 
-    replaces = [
-        [r'#.*$', r'', re.M],  # drop comments
-        [r"\n\n", r"\n", None],  # drop empty lines
-        [r'<(\w+) "([^"]+)">', r'<\1 name="\2">', None],  # add attribute `name`
-        [r"^(\s+)(\w+)\s+(.+)$", r"\1<\2>\3</\2>", re.M],  # change Value XYZ -> <Value>XYZ</Value>
-        [r'>"([^"]+)"<', r'>\1<', None],  # "asd" -> asd
-        [r"\s*<([^ >]+)([^>]*)>\r?\n\s*</\1>", r'<\1\2 />', None],  # combine empty entries <a></a> -> <a />
-    ]
+    # XXX: I'm not generating multiple nested plugins/types, because it's not
+    #      really needed. Collectd is supposed to understand "straight" options.
 
-    for r1, r2, flags in replaces:
-        S = re.sub(r1, r2, S, flags=re.U | re.I | (flags if flags else 0))
+    for row in result_set:
+        T = 1  # number of tabs in indent
+        if row.host:
+            host = '\n' + "\t" * T
+            host += '<Host "%s">' % row.host
+            host += "%s\n" + "\t" * T + "</Host>"
+            content = content % (host, "%s")
+            T += 1
 
-    return S
+        if row.plugin:
+            plugin = '\n' + "\t" * T
+            plugin += '<Plugin "%s">' % row.plugin
+            if row.plugin_instance:
+                plugin += '\n\t' + "\t" * T
+                plugin += 'Instance "%s"\n' % row.plugin_instance
+            plugin += "%s\n" + "\t" * T
+            plugin += "</Plugin>"
+            content = content % (plugin, "%s")
+            T += 1
 
+        # generating <Type> tag
+        S = "\n" + "\t" * T
+        S += '<Type "%s">' % row.type
+        S += """
+%s
+%s
+"""
+        S += "\n" + "\t" * T + "</Type>"
+        T += 1
 
-def XML_to_collectd(config, spacing="  "):
-    """
-    Change XML to collectd's configuration format.
+        for key, value in row._asdict().items():
+            if key in map_keys.keys() and value != None:
+                if isinstance(value, unicode):
+                    v = "\t" * T + "%s \"%s\"" % (map_keys[key], value)
+                    S = S % (v, "%s\n%s")
+                elif isinstance(value, float):
+                    v = "\t" * T + "%s %0.2f" % (map_keys[key], value)
+                    S = S % (v, "%s\n%s")
+                elif isinstance(value, bool):
+                    v = "\t" * T + "%s %s" % (map_keys[key], str(value).lower())
+                    S = S % (v, "%s\n%s")
+                else:
+                    # only integer value is left
+                    v = "\t" * T + "%s %s" % (map_keys[key], value)
+                    S = S % (v, "%s\n%s")
 
-    :param config:   XML-ified collectd's configuration
-    :param spacing:  default gap between argument name and its value
-    """
-    # XXX: DEPRECATED since I'll be using sqlite to store all the information
-    #      convert them to collectd's configuration file
-    S = config
+        S = S.replace("%s\n%s", "")
+        S = S.replace("\n\n", "")
 
-    # remove attribute `name`
-    S = re.sub(r'<(\w+) name="([^"]+)">', r'<\1 "\2">', S, flags=re.U | re.I)
+        content = content % (S, "%s\n%s")
 
-    # change <Value>XYZ</Value> -> Value/:param :spacing/XYZ
-    S = re.sub(r'<(\w+)>([^<]+)</\1>', r'\1' + spacing + r'\2', S, flags=re.U | re.I)
+    content = content.replace("%s\n%s", "")
 
-    # add "" around non-digit values
-    S = re.sub(r'^(\s+)(\w+)(\s+)([a-z].+)$', r'\1\2\3"\4"', S, flags=re.U | re.I | re.M)
-
-    # drop empty entries
-    S = re.sub(r'\s*<([^>]+)/>', r'', S, flags=re.U | re.I)  # drop empty entries
-
-    return S
+    return "<Threshold>" + content + "</Threshold>\n"

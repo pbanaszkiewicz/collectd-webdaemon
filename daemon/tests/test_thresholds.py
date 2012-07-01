@@ -1,10 +1,14 @@
 # coding: utf-8
 
-from daemon import settings, create_app
-from daemon.models import Threshold
-from daemon.database import db
-from flaskext.testing import TestCase
+from __future__ import with_statement
+from daemon.tests.base_test import TestCase
 import simplejson as json
+import os
+import shutil
+
+from daemon import settings, create_app
+from daemon.database import db
+from daemon.models import Threshold
 
 
 class ThresholdsTestCase(TestCase):
@@ -14,6 +18,11 @@ class ThresholdsTestCase(TestCase):
         return create_app(settings.settings)
 
     def setUp(self):
+        new_path = os.path.join(os.path.dirname(
+            self.app.config["collectd_threshold_file"]), "tests",
+            "threshold.conf")
+        shutil.copyfile(self.app.config["collectd_threshold_file"], new_path)
+        self.app.config["collectd_threshold_file"] = new_path
         db.create_all()
 
     def tearDown(self):
@@ -104,7 +113,7 @@ class ThresholdsTestCase(TestCase):
 
         update = {
             "warning_min": 70,
-            "inverted": True,
+            "invert": True,
             "hits": 2
         }
         received = self.client.put("/threshold/1",
@@ -202,3 +211,29 @@ class ThresholdsTestCase(TestCase):
         received = self.client.get(url % ("-", "-", "-", "foobar", "-"))
         self.assertEqual(received.status_code, 200)
         self.assertEqual(received.json["thresholds"], [])
+
+    def test_config_threshold(self):
+        """
+        Test: config_threshold, GET /generate_threshold
+        * testing both through request and manually invoking function
+        """
+        url = "/generate_threshold"
+        collectd_threshold_file = self.app.config["collectd_threshold_file"]
+        self.app.config["collectd_threshold_file"] += "nonexistent"
+        received = self.client.get(url)
+        self.assertEqual(received.status_code, 404)
+
+        self.app.config["collectd_threshold_file"] = collectd_threshold_file
+
+        F = open(collectd_threshold_file + ".bak", "w")
+        F.close()
+        os.chmod(collectd_threshold_file + ".bak", 0000)
+        received = self.client.get(url)
+        self.assertEqual(received.status_code, 404)
+        os.chmod(collectd_threshold_file + ".bak", 0777)
+        os.remove(collectd_threshold_file + ".bak")
+
+        received = self.client.get(url)
+        self.assertEqual(received.status_code, 500)
+
+        #config_thresholds()

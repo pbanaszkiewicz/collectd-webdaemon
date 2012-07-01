@@ -1,14 +1,23 @@
 # coding: utf-8
 
+import os
+import signal
+import shutil
+import subprocess
+print subprocess.__file__
+from subprocess import CalledProcessError
+
 import simplejson as json
 from sqlalchemy.exc import SQLAlchemyError, SAWarning
 
 from flask import Blueprint, request, url_for, jsonify, make_response
+from flask import current_app
 from flask.views import MethodView
 thresholds = Blueprint('thresholds', __name__)
 
 from daemon.models import Threshold
 from daemon.database import db
+from daemon.utils import generate_threshold_config
 
 
 class ThresholdAPI(MethodView):
@@ -17,9 +26,9 @@ class ThresholdAPI(MethodView):
         Adds a threshold to the database. Supports only POST method.
         Request body should be a JSON dictionary {"threshold": data}
         `data` should be a dictionary with these keys: `host`, `plugin`,
-            `plugin_instance`, `type`, `type_instance`, `dataset`,
+            `plugin_instance`, `type`, `type_instance`, `datasource`,
             `warning_min`, `warning_max`, `failure_min`, `failure_max`,
-            `percentage`, `inverted`, `hits`, `hysteresis`
+            `percentage`, `invert`, `hits`, `hysteresis`
         Key `type` is mandatory.
         """
         try:
@@ -55,9 +64,9 @@ class ThresholdAPI(MethodView):
         Updates the threshold's record in the database. `id` specifies record.
         Request body should be a JSON dictionary {"threshold": data}
         `data` should be a dictionary with these keys: `host`, `plugin`,
-            `plugin_instance`, `type`, `type_instance`, `dataset`,
+            `plugin_instance`, `type`, `type_instance`, `datasource`,
             `warning_min`, `warning_max`, `failure_min`, `failure_max`,
-            `percentage`, `inverted`, `hits`, `hysteresis`
+            `percentage`, `invert`, `hits`, `hysteresis`
         """
         try:
             data = json.loads(request.form["threshold"])
@@ -127,4 +136,62 @@ def lookup_threshold(host, plugin, plugin_instance, type, type_instance):
 
     return jsonify(thresholds=result)
 
-# TODO: generate config
+
+@thresholds.route("/generate_threshold")
+def config_thresholds(pid=None):
+    """
+    Saves data from database into the file (set up in
+    settings.settings["collectd_threshold_file"].)
+    After successful save, restarts the server.
+    """
+    # backup current config
+    filename = current_app.config.get("collectd_threshold_file",
+        "thresholds.conf")
+    filename = os.path.join(os.path.dirname(__file__), filename)
+    backup = filename + ".bak"
+    try:
+        shutil.copyfile(filename, backup)
+    except IOError:
+        return "Configuration file not spotted.", 404
+
+    result_set = Threshold.query.order_by(Threshold.host). \
+            order_by(Threshold.plugin).order_by(Threshold.type). \
+            order_by(Threshold.id)
+
+    try:
+        F = open(filename, "w")
+        F.write(generate_threshold_config(result_set))
+        F.close()
+
+    except IOError:
+        shutil.move(backup, filename)
+        return "Cannot save file.", 404
+
+    try:
+        # test if the new config works
+        result = subprocess.check_output(["collectd", "-t"])
+
+        if result:
+            # unfortunately there might be errors, even though process' return
+            # code is 0. But possible errors appear in the output, so we check
+            # if it exists
+            raise CalledProcessError("Should be no output", 1)
+
+    except (CalledProcessError, OSError):
+        # restore backup in case of failure
+        shutil.move(backup, filename)
+        return "Something in config is wrong, reverting.", 500
+
+    else:
+        os.remove(backup)
+
+        # restart the server in case of success
+        try:
+            pid = pid or subprocess.check_output(["pidof",
+                "collectdmon"]).strip().split()[0]
+        except subprocess.CalledProcessError:
+            return "Cannot restart collectd daemon. You should restart it " + \
+                   "manually on your own.", 200
+        else:
+            os.kill(int(pid), signal.SIGHUP)
+            return "Configuration updated, server restarted.", 200

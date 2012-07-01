@@ -2,7 +2,7 @@
 
 from daemon import settings, create_app
 from daemon.database import db
-from flaskext.testing import TestCase
+from daemon.tests.base_test import TestCase
 import os.path
 import simplejson as json
 

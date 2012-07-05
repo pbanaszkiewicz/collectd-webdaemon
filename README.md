@@ -1,4 +1,5 @@
-collectd-playground
-===================
+collectd-webdaemon
+==================
 
-Just a simple playground for me to test Tornado and RRD
+Daemon serving data collected by collectd via JSON. It supports setting/getting
+thresholds, too!

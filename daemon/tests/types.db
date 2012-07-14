@@ -1,0 +1,10 @@
+absolute  some text
+dns_rcode  some text
+dns_reject  some text
+dns_request  some text
+dns_resolver  some text
+dns_response  some text
+dns_transfer  some text
+memcached_command  some text
+ps_state  some text
+pinba_view  some text

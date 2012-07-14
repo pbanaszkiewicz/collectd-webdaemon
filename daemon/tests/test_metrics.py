@@ -21,6 +21,30 @@ class MetricsTestCase(TestCase):
         db.session.remove()
         db.drop_all()
 
+    def test_list_tree(self):
+        """
+        Test: list_tree, /list_tree
+        * 200 OK, content
+        * 404 Not Found
+        """
+        received = self.client.get("/list_tree")
+        self.assertEqual(received.status_code, 200)
+        self.assertIn("tree", received.json.keys())
+        self.assertIn("node1.example.org", received.json["tree"].keys())
+        self.assertIn("kvm_instance1.example.org", received.json["tree"].keys())
+        self.assertEqual(
+            set(received.json["tree"]["node1.example.org"].keys()),
+            set(["cpu-0", "memory", "disk-sda", "interface"])
+        )
+        self.assertEqual(
+            set(received.json["tree"]["kvm_instance1.example.org"].keys()),
+            set(["cpu_kvm", "io_kvm", "net_kvm", "memory_kvm"])
+        )
+
+        self.app.config["collectd_directory"] += "/.."
+        received = self.client.get("/list_tree")
+        self.assertEqual(received.status_code, 404)
+
     def test_list_hosts(self):
         """
         Test: list_hosts, /list_hosts

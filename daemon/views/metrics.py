@@ -3,11 +3,39 @@
 import os
 import re
 import simplejson as json
+from collections import OrderedDict
 
 from flask import current_app, Blueprint, jsonify, request
 metrics = Blueprint('metrics', __name__)
 
 from daemon.utils import read_rrd
+
+
+@metrics.route("/list_tree")
+def list_tree():
+    """
+    Return JSONified tree structure of collectd data directory.
+    """
+    try:
+        data_dir = current_app.config["collectd_directory"]
+        data_dir = os.path.join(data_dir, "rrd")
+
+        tree = OrderedDict()
+
+        walking_dead = os.walk(data_dir)
+        hosts = next(walking_dead)[1]
+
+        for host in hosts:
+            tree[host] = OrderedDict()
+            plugins = next(walking_dead)[1]
+            for plugin in plugins:
+                types = next(walking_dead)[2]
+                tree[host][plugin] = types
+
+        return jsonify(tree=tree)
+
+    except (OSError, StopIteration):
+        return ("Collectd directory `%s` not found" % data_dir, 404)
 
 
 @metrics.route("/list_hosts")

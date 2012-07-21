@@ -4,7 +4,6 @@ import os
 import signal
 import shutil
 import subprocess
-print subprocess.__file__
 from subprocess import CalledProcessError
 
 import simplejson as json

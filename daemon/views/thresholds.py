@@ -112,7 +112,7 @@ thresholds.add_url_rule(
 def list_thresholds():
     result = Threshold.query.order_by(Threshold.id)
     if result:
-        return jsonify(thresholds=result)
+        return jsonify(thresholds=list(result))
     else:
         return "Not Found", 404
 

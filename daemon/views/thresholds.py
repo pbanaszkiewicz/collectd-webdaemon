@@ -111,7 +111,7 @@ thresholds.add_url_rule(
 @thresholds.route("/thresholds/")
 def list_thresholds():
     result = Threshold.query.order_by(Threshold.id)
-    if result:
+    if result.count():
         return jsonify(thresholds=list(result))
     else:
         return "Not Found", 404

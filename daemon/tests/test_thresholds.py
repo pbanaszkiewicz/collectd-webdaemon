@@ -165,6 +165,43 @@ class ThresholdsTestCase(TestCase):
         self.assertEqual(received.status_code, 404)
         self.assertEqual(Threshold.query.count(), 0)
 
+    def test_threshold_list(self):
+        """
+        Test: list_thresholds, GET /thresholds/
+        * no thresholds yields 404
+        * returns all the thresholds
+        """
+        received = self.client.get("/thresholds/")
+        self.assertEqual(received.status_code, 404)
+
+        obj1 = Threshold(host="host1", plugin="plugin1",
+                plugin_instance="plugin1inst", type="type1",
+                type_instance="type1inst")
+        db.session.add(obj1)
+
+        obj2 = Threshold(host="host1", plugin="plugin1",
+                plugin_instance="plugin1inst", type="type1",
+                type_instance="type1inst")
+        db.session.add(obj2)
+        obj3 = Threshold(host="host2", plugin="plugin1",
+                plugin_instance="plugin1inst", type="type1",
+                type_instance="type1inst")
+        db.session.add(obj3)
+        obj4 = Threshold(plugin="plugin1",
+                plugin_instance="plugin1inst", type="type1",
+                type_instance="type2inst")
+        db.session.add(obj4)
+        obj5 = Threshold(plugin="plugin1",
+                plugin_instance="plugin1inst", type="type2",
+                type_instance="type2inst")
+        db.session.add(obj5)
+
+        db.session.commit()
+
+        received = self.client.get("/thresholds/")
+        self.assertEqual(received.status_code, 200)
+        self.assertEqual(len(received.json["thresholds"]), 5)
+
     def test_lookup_threshold(self):
         """
         Test: lookup_threshold, GET /lookup_threshold/<host>/<plugin>/...

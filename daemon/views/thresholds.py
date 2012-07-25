@@ -108,6 +108,15 @@ thresholds.add_url_rule(
 )
 
 
+@thresholds.route("/thresholds/")
+def list_thresholds():
+    result = Threshold.query.order_by(Threshold.id)
+    if result:
+        return jsonify(thresholds=result)
+    else:
+        return "Not Found", 404
+
+
 @thresholds.route("/lookup_threshold/<host>/<plugin>/<plugin_instance>/<type>/<type_instance>")
 def lookup_threshold(host, plugin, plugin_instance, type, type_instance):
     """

@@ -70,7 +70,9 @@ class ThresholdAPI(MethodView):
         try:
             data = json.loads(request.form["threshold"])
             threshold = Threshold.query.get_or_404(threshold_id)
-            threshold.query.update(data)
+            new = Threshold(**data)
+            new.id = threshold_id
+            db.session.merge(new)
 
         except (SQLAlchemyError, SAWarning, json.JSONDecodeError):
             db.session.rollback()

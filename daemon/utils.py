@@ -29,11 +29,9 @@ def read_rrd(data_dir, paths, start, end):
                 # iterating through possible datasets
                 D = list()
                 for k, v in enumerate(data[2]):
-                    # time is being multiplied by 1000, because JS handles EPOCH
-                    # as miliseconds, not seconds since 1/1/1970 00:00:00
-
-                    #        [ time                               , value]
-                    D.append([(data[0][0] + data[0][2] * k) * 1000, v[dataset]])
+                    # Time is in Linux EPOCH format
+                    #        [ time                      , value]
+                    D.append([data[0][0] + data[0][2] * k, v[dataset] or 0])
 
                 return_data[path].append(
                     {

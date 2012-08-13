@@ -16,5 +16,5 @@ if __name__ == "__main__":
         from tornado.wsgi import WSGIContainer
         from tornado.ioloop import IOLoop
         http_server = HTTPServer(WSGIContainer(app))
-        http_server.listen()
+        http_server.listen(app.config["address"][1], app.config["address"][0])
         IOLoop.instance().start()

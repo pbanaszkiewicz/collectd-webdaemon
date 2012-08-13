@@ -3,6 +3,9 @@ settings = {
     "DEBUG": True,
     "debug_address": ["0.0.0.0", 8888],
 
+    # Production setup
+    "address": ["0.0.0.0", 9999],
+
     # Directory, where all data is collected by the collectd daemon.
     # It should contain "rrd" sub-directory.
     "collectd_directory": "/var/lib/collectd/",

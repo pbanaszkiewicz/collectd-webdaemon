@@ -199,9 +199,9 @@ def config_thresholds(pid=None):
         try:
             pid = pid or subprocess.check_output(["pidof",
                 "collectdmon"]).strip().split()[0]
-        except subprocess.CalledProcessError:
+            os.kill(int(pid), signal.SIGHUP)
+        except (subprocess.CalledProcessError, OSError):
             return "Cannot restart collectd daemon. You should restart it " + \
                    "manually on your own.", 503
         else:
-            os.kill(int(pid), signal.SIGHUP)
             return "Configuration updated, server restarted.", 200

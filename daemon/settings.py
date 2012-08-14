@@ -1,6 +1,6 @@
 settings = {
     # Only for development purposes.
-    "DEBUG": True,
+    "DEBUG": False,
     "debug_address": ["0.0.0.0", 8888],
 
     # Production setup

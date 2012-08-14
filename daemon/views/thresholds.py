@@ -201,7 +201,7 @@ def config_thresholds(pid=None):
                 "collectdmon"]).strip().split()[0]
         except subprocess.CalledProcessError:
             return "Cannot restart collectd daemon. You should restart it " + \
-                   "manually on your own.", 200
+                   "manually on your own.", 503
         else:
             os.kill(int(pid), signal.SIGHUP)
             return "Configuration updated, server restarted.", 200
